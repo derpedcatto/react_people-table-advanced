@@ -2,13 +2,57 @@ import React from 'react';
 import { Person } from '../../types';
 import { PersonLink } from '../PersonLink/PersonLink';
 import classNames from 'classnames';
+import { SearchLink } from '../SearchLink/SearchLink';
+import { useSearchParams } from 'react-router-dom';
+import { SearchParams } from '../../utils/searchHelper';
+import { PeopleSearchParams } from '../../enums/PeopleSearchParams';
+import { TableSortOptions } from '../../enums/TableSortOptions';
+import { PeopleSortOptions } from '../../enums/PeopleSortOptions';
 
-type Props = {
+type SortableThProps = {
+  title: string;
+  sortBy: PeopleSortOptions;
+};
+
+const SortableTh: React.FC<SortableThProps> = ({ title, sortBy }) => {
+  const [searchParams] = useSearchParams();
+
+  const currentSort = searchParams.get(PeopleSearchParams.Sort);
+  const currentOrder = searchParams.get(PeopleSearchParams.Order);
+
+  let params: SearchParams = { sort: sortBy, order: null };
+  let iconClassName = 'fa-sort';
+
+  if (currentSort === sortBy) {
+    if (currentOrder === TableSortOptions.Descending) {
+      params = { sort: null, order: null };
+      iconClassName = 'fa-sort-down';
+    } else {
+      params = { order: TableSortOptions.Descending };
+      iconClassName = 'fa-sort-up';
+    }
+  }
+
+  return (
+    <th>
+      <span className="is-flex is-flex-wrap-nowrap">
+        {title}
+        <SearchLink params={params}>
+          <span className="icon">
+            <i className={classNames('fas', iconClassName)} />
+          </span>
+        </SearchLink>
+      </span>
+    </th>
+  );
+};
+
+type PeopleTableProps = {
   people: Person[];
   selectedPersonSlug?: string;
 };
 
-export const PeopleTable: React.FC<Props> = ({
+export const PeopleTable: React.FC<PeopleTableProps> = ({
   people,
   selectedPersonSlug,
 }) => {
@@ -19,10 +63,10 @@ export const PeopleTable: React.FC<Props> = ({
     >
       <thead>
         <tr>
-          <th>Name</th>
-          <th>Sex</th>
-          <th>Born</th>
-          <th>Died</th>
+          <SortableTh title="Name" sortBy={PeopleSortOptions.Name} />
+          <SortableTh title="Sex" sortBy={PeopleSortOptions.Sex} />
+          <SortableTh title="Born" sortBy={PeopleSortOptions.Born} />
+          <SortableTh title="Died" sortBy={PeopleSortOptions.Died} />
           <th>Mother</th>
           <th>Father</th>
         </tr>

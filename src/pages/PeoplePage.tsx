@@ -1,16 +1,89 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { getPeople } from '../api';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Person } from '../types/Person';
 import { Loader } from '../components/Loader';
 import { PeopleTable } from '../components/PeopleTable/PeopleTable';
+import { PeopleFilters } from '../components/PeopleFilters/PeopleFilters';
+import { PeopleSearchParams } from '../enums/PeopleSearchParams';
+import { TableSortOptions } from '../enums/TableSortOptions';
+
+function preparePeople(
+  people: Person[],
+  searchParams: URLSearchParams,
+): Person[] {
+  const sex = searchParams.get(PeopleSearchParams.Sex) || null;
+  const query = searchParams.get(PeopleSearchParams.Query) || '';
+  const sort = searchParams.get(PeopleSearchParams.Sort) || null;
+  const order = searchParams.get(PeopleSearchParams.Order) || null;
+  const centuries =
+    searchParams.getAll(PeopleSearchParams.Centuries).map(Number) || [];
+
+  const filteredPeople = people
+    .filter(person => {
+      return (
+        person.name.toLowerCase().includes(query) ||
+        person.motherName?.toLowerCase().includes(query) ||
+        person.fatherName?.toLowerCase().includes(query)
+      );
+    })
+    .filter(person => {
+      if (centuries.length === 0) {
+        return true;
+      }
+
+      const minCentury = Math.min(...centuries);
+      const maxCentury = Math.max(...centuries);
+
+      const bornCentury = Math.ceil(person.born / 100);
+      const diedCentury = Math.ceil(person.died / 100);
+
+      return (
+        (bornCentury <= maxCentury && diedCentury >= minCentury) ||
+        (bornCentury >= minCentury && diedCentury <= maxCentury)
+      );
+    })
+    .filter(person => {
+      if (!sex) {
+        return true;
+      }
+
+      return person.sex === sex;
+    });
+
+  if (sort) {
+    return filteredPeople.sort((a, b) => {
+      let comparison = 0;
+
+      const fieldA = a[sort as keyof Person];
+      const fieldB = b[sort as keyof Person];
+
+      if (typeof fieldA === 'string' && typeof fieldB === 'string') {
+        comparison = fieldA.localeCompare(fieldB);
+      }
+
+      if (typeof fieldA === 'number' && typeof fieldB === 'number') {
+        comparison = fieldA - fieldB;
+      }
+
+      return order === TableSortOptions.Descending ? -comparison : comparison;
+    });
+  }
+
+  return filteredPeople;
+}
 
 export const PeoplePage = () => {
+  const [searchParams] = useSearchParams();
+  const { personSlug } = useParams();
+
   const [people, setPeople] = useState<Person[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
 
-  const { personSlug } = useParams();
+  const preparedPeople = useMemo(() => {
+    return preparePeople(people, searchParams);
+  }, [people, searchParams]);
 
   const handleLoadPeople = async () => {
     try {
@@ -28,17 +101,29 @@ export const PeoplePage = () => {
     handleLoadPeople();
   }, []);
 
-  if (isLoading) {
-    return <Loader />;
-  }
+  const renderContent = () => {
+    if (isError) {
+      return (
+        <p data-cy="peopleLoadingError" className="has-text-danger">
+          Something went wrong
+        </p>
+      );
+    }
 
-  if (isError) {
+    if (people.length === 0) {
+      return <p data-cy="noPeopleMessage">There are no people on the server</p>;
+    }
+
+    if (preparedPeople.length === 0) {
+      return <p>There are no people matching the current search criteria</p>;
+    }
+
     return (
-      <p data-cy="peopleLoadingError" className="has-text-danger">
-        Something went wrong
-      </p>
+      <div className="box table-container">
+        <PeopleTable people={preparedPeople} selectedPersonSlug={personSlug} />
+      </div>
     );
-  }
+  };
 
   return (
     <>
@@ -46,27 +131,19 @@ export const PeoplePage = () => {
 
       <div className="block">
         <div className="columns is-desktop is-flex-direction-row-reverse">
-          <div className="column is-7-tablet is-narrow-desktop">
-            {/* <PeopleFilters /> */}
-          </div>
+          {isLoading ? (
+            <Loader />
+          ) : (
+            <>
+              <div className="column is-7-tablet is-narrow-desktop">
+                <PeopleFilters />
+              </div>
 
-          <div className="column">
-            <div className="box table-container">
-              {people.length === 0 ? (
-                <p data-cy="noPeopleMessage">
-                  There are no people on the server
-                </p>
-              ) : (
-                <PeopleTable people={people} selectedPersonSlug={personSlug} />
-              )}
-            </div>
-          </div>
+              <div className="column">{renderContent()}</div>
+            </>
+          )}
         </div>
       </div>
     </>
   );
 };
-
-{
-  /* <p>There are no people matching the current search criteria</p> */
-}
