@@ -1,6 +1,8 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useSearchParams } from 'react-router-dom';
 
 export const NavBar = () => {
+  const [searchParams] = useSearchParams();
+
   return (
     <nav
       className="navbar is-fixed-top has-shadow"
@@ -24,7 +26,10 @@ export const NavBar = () => {
 
           <li>
             <NavLink
-              to="/people"
+              to={{
+                pathname: '/people',
+                search: searchParams.toString(),
+              }}
               className={({ isActive }) =>
                 `navbar-item ${isActive ? 'has-background-grey-lighter' : ''}`
               }

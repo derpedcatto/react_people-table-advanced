@@ -7,15 +7,18 @@ import { PeopleTable } from '../components/PeopleTable/PeopleTable';
 import { PeopleFilters } from '../components/PeopleFilters/PeopleFilters';
 import { PeopleSearchParams } from '../enums/PeopleSearchParams';
 import { TableSortOptions } from '../enums/TableSortOptions';
+import { PeopleSortOptions } from '../enums/PeopleSortOptions';
 
 function preparePeople(
   people: Person[],
   searchParams: URLSearchParams,
 ): Person[] {
   const sex = searchParams.get(PeopleSearchParams.Sex) || null;
-  const query = searchParams.get(PeopleSearchParams.Query) || '';
   const sort = searchParams.get(PeopleSearchParams.Sort) || null;
   const order = searchParams.get(PeopleSearchParams.Order) || null;
+  const query = (
+    searchParams.get(PeopleSearchParams.Query) || ''
+  ).toLowerCase();
   const centuries =
     searchParams.getAll(PeopleSearchParams.Centuries).map(Number) || [];
 
@@ -32,16 +35,10 @@ function preparePeople(
         return true;
       }
 
-      const minCentury = Math.min(...centuries);
-      const maxCentury = Math.max(...centuries);
-
       const bornCentury = Math.ceil(person.born / 100);
       const diedCentury = Math.ceil(person.died / 100);
 
-      return (
-        (bornCentury <= maxCentury && diedCentury >= minCentury) ||
-        (bornCentury >= minCentury && diedCentury <= maxCentury)
-      );
+      return centuries.includes(bornCentury) || centuries.includes(diedCentury);
     })
     .filter(person => {
       if (!sex) {
@@ -51,22 +48,32 @@ function preparePeople(
       return person.sex === sex;
     });
 
-  if (sort) {
+  if (sort && sort in PeopleSortOptions) {
     return filteredPeople.sort((a, b) => {
-      let comparison = 0;
-
       const fieldA = a[sort as keyof Person];
       const fieldB = b[sort as keyof Person];
 
+      if (fieldA === undefined || fieldA === null) {
+        return 1;
+      }
+
+      if (fieldB === undefined || fieldB === null) {
+        return -1;
+      }
+
       if (typeof fieldA === 'string' && typeof fieldB === 'string') {
-        comparison = fieldA.localeCompare(fieldB);
+        return order === TableSortOptions.Descending
+          ? fieldB.localeCompare(fieldA)
+          : fieldA.localeCompare(fieldB);
       }
 
       if (typeof fieldA === 'number' && typeof fieldB === 'number') {
-        comparison = fieldA - fieldB;
+        return order === TableSortOptions.Descending
+          ? fieldB - fieldA
+          : fieldA - fieldB;
       }
 
-      return order === TableSortOptions.Descending ? -comparison : comparison;
+      return 0;
     });
   }
 
