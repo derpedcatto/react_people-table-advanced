@@ -26,8 +26,8 @@ function preparePeople(
     .filter(person => {
       return (
         person.name.toLowerCase().includes(query) ||
-        person.motherName?.toLowerCase().includes(query) ||
-        person.fatherName?.toLowerCase().includes(query)
+        (person.motherName ?? '').toLowerCase().includes(query) ||
+        (person.fatherName ?? '').toLowerCase().includes(query)
       );
     })
     .filter(person => {
@@ -48,7 +48,11 @@ function preparePeople(
       return person.sex === sex;
     });
 
-  if (sort && sort in PeopleSortOptions) {
+  const isSortOptionValueValid = Object.values(PeopleSortOptions).includes(
+    sort as PeopleSortOptions,
+  );
+
+  if (sort && isSortOptionValueValid) {
     return filteredPeople.sort((a, b) => {
       const fieldA = a[sort as keyof Person];
       const fieldB = b[sort as keyof Person];
@@ -108,15 +112,7 @@ export const PeoplePage = () => {
     handleLoadPeople();
   }, []);
 
-  const renderContent = () => {
-    if (isError) {
-      return (
-        <p data-cy="peopleLoadingError" className="has-text-danger">
-          Something went wrong
-        </p>
-      );
-    }
-
+  const renderPeopleContent = () => {
     if (people.length === 0) {
       return <p data-cy="noPeopleMessage">There are no people on the server</p>;
     }
@@ -137,19 +133,21 @@ export const PeoplePage = () => {
       <h1 className="title">People Page</h1>
 
       <div className="block">
-        <div className="columns is-desktop is-flex-direction-row-reverse">
-          {isLoading ? (
-            <Loader />
-          ) : (
-            <>
-              <div className="column is-7-tablet is-narrow-desktop">
-                <PeopleFilters />
-              </div>
+        {isLoading ? (
+          <Loader />
+        ) : isError ? (
+          <p data-cy="peopleLoadingError" className="has-text-danger">
+            Something went wrong
+          </p>
+        ) : (
+          <div className="columns is-desktop is-flex-direction-row-reverse">
+            <div className="column is-7-tablet is-narrow-desktop">
+              <PeopleFilters />
+            </div>
 
-              <div className="column">{renderContent()}</div>
-            </>
-          )}
-        </div>
+            <div className="column">{renderPeopleContent()}</div>
+          </div>
+        )}
       </div>
     </>
   );
